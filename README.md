@@ -1,19 +1,12 @@
-# Inzicht in Natuur — eerste prototype
+# Inzicht in Natuur v3
 
-Streamlit-dashboard voor het kiezen van rijk, klasse of orde en het bekijken van de onderliggende families uit iNaturalist.
+Streamlit-app voor taxonomische familieoverzichten op basis van iNaturalist.
 
-## Starten
+- Automatisch ophalen van alle gevonden families, inclusief aantallen en hiërarchie.
+- Berekening via een achtergrondthread met maximaal 3 gelijktijdige verzoekreeksen.
+- Tussentijdse resultaten worden opgeslagen in `inzicht_cache.sqlite3` op de Streamlit-server.
+- Scherm ververst elke vijf seconden; mislukte families zijn opnieuw te proberen.
+- De lokale SQLite-cache kan verdwijnen wanneer Streamlit Community Cloud de app opnieuw bouwt of de container vervangt. Voor duurzame opslag tussen deployments is externe opslag nodig.
+- De kenmerken zijn nog niet ingevuld: de iNaturalist-API levert hiervoor geen betrouwbare gestructureerde data.
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-## Belangrijke beperkingen
-
-- Dit is een eerste werkend prototype, niet de complete wetenschappelijk gevalideerde familiedatabase.
-- De iNaturalist descendants-API kan bij grote taxa begrensd zijn; de app waarschuwt bij afkapping.
-- Binnen een orde staan families alfabetisch, niet in een veronderstelde fylogenetische volgorde.
-- 'Waargenomen soorten' telt soorten met observaties en is niet gelijk aan het totaal aantal beschreven soorten.
-- De drie diagnostische familiekenmerken blijven voorlopig leeg; hiervoor is een aparte gecontroleerde gegevensbron nodig.
-- iNaturalist-verzoeken worden beperkt tot 3 parallelle taken en een instelbaar aantal families.
+Start: `streamlit run app.py`
