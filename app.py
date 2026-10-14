@@ -61,11 +61,13 @@ def families_for(taxon_id):
     return list(unique.values()), total, len({int(x['id']) for x in items}) < total
 
 
-def fetch_one(family_id, include_observations=False):
-    # /taxa total_results counts indexed species taxa, not observed species.
-    detail = api(f'/taxa/{family_id}').get('results', [{}])[0]
-    hierarchy = {HIERARCHY[a['rank']]: a.get('name', '') for a in detail.get('ancestors', []) if a.get('rank') in HIERARCHY}
-    species = api('/taxa', {'taxon_id': family_id, 'rank': 'species', 'per_page': 1}).get('total_results')
+def fetch_one(family, include_observations=False):
+    """One taxonomy count request per family; reuse hierarchy already in list payload."""
+    family_id = int(family['id'])
+    ancestors = family.get('ancestors') or []
+    hierarchy = {HIERARCHY[a['rank']]: a.get('name', '') for a in ancestors if isinstance(a, dict) and a.get('rank') in HIERARCHY}
+    response = api('/taxa', {'taxon_id': family_id, 'rank': 'species', 'per_page': 1})
+    species = response.get('total_results')
     if species is None:
         raise RuntimeError('Geen soortentotaal ontvangen')
     obs = None
@@ -79,11 +81,11 @@ def job_registry():
     return {'lock': threading.Lock(), 'running': set(), 'errors': {}}
 
 
-def background_job(key, ids, include_observations):
+def background_job(key, families_to_fetch, include_observations):
     registry = job_registry()
     try:
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {executor.submit(fetch_one, i, include_observations): i for i in ids}
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(fetch_one, f, include_observations): int(f["id"]) for f in families_to_fetch}
             for future in as_completed(futures):
                 family_id = futures[future]
                 try:
@@ -102,13 +104,13 @@ def background_job(key, ids, include_observations):
             registry['running'].discard(key)
 
 
-def start_job(key, ids, include_observations):
+def start_job(key, families_to_fetch, include_observations):
     registry = job_registry()
     with registry['lock']:
-        if key in registry['running'] or not ids:
+        if key in registry['running'] or not families_to_fetch:
             return
         registry['running'].add(key)
-    threading.Thread(target=background_job, args=(key, ids, include_observations), daemon=True).start()
+    threading.Thread(target=background_job, args=(key, families_to_fetch, include_observations), daemon=True).start()
 
 
 def read_cached(ids, include_observations):
@@ -180,7 +182,7 @@ def results_view():
         # Avoid continuously retrying failed requests on each refresh.
         retryable = [i for i in missing if i not in errors]
         if retryable:
-            start_job(key, retryable, include_observations)
+            start_job(key, [f for f in families if int(f["id"]) in set(retryable)], include_observations)
             running = True
     complete = len(ids) - len(missing)
     st.subheader('Automatische verwerking')
@@ -200,6 +202,8 @@ def results_view():
     for f in families:
         tid = int(f['id'])
         species, h, obs = cached.get(tid, (None, {}, None))
+        if not h:
+            h = {HIERARCHY[a['rank']]: a.get('name', '') for a in (f.get('ancestors') or []) if isinstance(a, dict) and a.get('rank') in HIERARCHY}
         rows.append({'Taxon ID': tid, **{name: h.get(name, '') for name in HIERARCHY.values()}, 'Familie': f['name'], 'Engelse naam': f.get('preferred_common_name', ''), 'Aantal soorten': species, **({'Waarnemingen': obs} if include_observations else {}), 'Kenmerk 1': '', 'Kenmerk 2': '', 'Kenmerk 3': ''})
     df = pd.DataFrame(rows).sort_values(['Rijk', 'Stam', 'Klasse', 'Orde', 'Familie'], kind='stable')
     st.subheader('Familieoverzicht')
