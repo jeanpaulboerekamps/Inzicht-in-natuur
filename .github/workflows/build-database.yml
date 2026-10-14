@@ -1,0 +1,24 @@
+name: Build family database
+on:
+  workflow_dispatch:
+    inputs:
+      count_species:
+        description: 'Bereken soortenaantallen (langzaam, herstartbaar via bewaarde database)'
+        type: boolean
+        default: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python build_database.py ${{ inputs.count_species && '--count-species' || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: families-database
+          path: families.sqlite3
+          retention-days: 30
