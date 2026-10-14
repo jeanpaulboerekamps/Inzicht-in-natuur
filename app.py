@@ -25,14 +25,25 @@ def search_taxa(query, rank):
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def descendants(taxon_id):
-    # API paginates descendants; only family-ranked entries are shown in the table.
-    first = api(f'/taxa/{taxon_id}/descendants', {'per_page':500,'page':1})
-    total = first.get('total_results',0)
-    pages = min((total+499)//500, 40)
-    items = first.get('results',[])
-    for p in range(2,pages+1):
-        items += api(f'/taxa/{taxon_id}/descendants', {'per_page':500,'page':p}).get('results',[])
-    return items, total, pages*500 < total
+    """Query families directly, avoiding the nonexistent /taxa/{id}/descendants route.
+
+    iNaturalist /taxa supports taxon_id (descendant filter) and rank.
+    """
+    params = {'taxon_id': taxon_id, 'rank': 'family', 'per_page': 200}
+    first = api('/taxa', {**params, 'page': 1})
+    total = int(first.get('total_results', 0))
+    items = list(first.get('results', []))
+    page_size = 200
+    # iNaturalist paginated API endpoints commonly limit deep pagination.
+    max_pages = 50
+    pages = min((total + page_size - 1) // page_size, max_pages)
+    for page in range(2, pages + 1):
+        batch = api('/taxa', {**params, 'page': page}).get('results', [])
+        if not batch:
+            break
+        items.extend(batch)
+    unique = {int(item['id']): item for item in items}
+    return list(unique.values()), total, len(unique) < total
 
 @st.cache_data(ttl=604800, show_spinner=False)
 def details(taxon_id):
@@ -75,9 +86,9 @@ except Exception as e:
 families = [n for n in nodes if n.get('rank')=='family' and n.get('is_active',True)]
 if selected.get('rank')=='family': families=[selected]
 if truncated:
-    st.warning('De iNaturalist-API geeft een grote afstammelingenlijst terug. Deze lijst is afgekapt; de familielijst kan onvolledig zijn. Selecteer een lagere taxonomische groep.')
+    st.warning('Niet alle families konden worden opgehaald. Kies een kleinere groep (klasse of orde) voor een volledig overzicht.')
 if not families:
-    st.warning('Geen families gevonden in de opgehaalde afstammelingen. Bij zeer grote groepen kan de API de afstammelingen beperken; kies dan een klasse of orde.')
+    st.warning('Geen families gevonden voor dit taxon. Probeer een andere klasse of orde.')
     st.stop()
 
 # Keep taxonomic hierarchy rather than sorting by observation count or alphabetically.
@@ -140,4 +151,4 @@ st.markdown('#### Familieoverzicht')
 st.dataframe(df.drop(columns='Taxon ID'),hide_index=True,use_container_width=True,height=580)
 st.download_button('Download CSV',df.to_csv(index=False).encode('utf-8-sig'),file_name=f"inzicht_in_natuur_{selected['name']}.csv",mime='text/csv')
 st.caption('Herkenningskenmerken zijn nog niet gevuld: iNaturalist biedt geen gestructureerde bron met drie betrouwbare diagnostische kenmerken per familie. Automatisch gegenereerde kenmerken zonder broncontrole zouden misleidend zijn.')
-st.caption('De familielijst is gebaseerd op API-afstammelingen; controleer bij grote groepen of de API alle families heeft teruggegeven.')
+st.caption(f'Families via iNaturalist /taxa: {len(families)} van {total} gerapporteerde resultaten.' + (' De lijst is onvolledig.' if truncated else ''))
