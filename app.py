@@ -11,7 +11,7 @@ import streamlit as st
 
 BASE = 'https://api.inaturalist.org/v1'
 DB = Path(__file__).with_name('inzicht_cache.sqlite3')
-HEADERS = {'User-Agent': 'InzichtInNatuur/0.3 (educational biodiversity overview)'}
+HEADERS = {'User-Agent': 'InzichtInNatuur/0.4 (educational biodiversity overview)'}
 RANKS = {'Rijk': 'kingdom', 'Klasse': 'class', 'Orde': 'order'}
 HIERARCHY = {'kingdom': 'Rijk', 'phylum': 'Stam', 'class': 'Klasse', 'order': 'Orde'}
 
@@ -20,6 +20,7 @@ def connection():
     con = sqlite3.connect(DB, timeout=30)
     con.execute('PRAGMA busy_timeout=30000')
     con.execute('CREATE TABLE IF NOT EXISTS family_data (id INTEGER PRIMARY KEY, counts_obs INTEGER, counts_species INTEGER, hierarchy TEXT, updated REAL)')
+    con.execute('CREATE TABLE IF NOT EXISTS family_species (id INTEGER PRIMARY KEY, species INTEGER, hierarchy TEXT, updated REAL)')
     con.commit()
     return con
 
@@ -60,12 +61,17 @@ def families_for(taxon_id):
     return list(unique.values()), total, len({int(x['id']) for x in items}) < total
 
 
-def fetch_one(family_id):
+def fetch_one(family_id, include_observations=False):
+    # /taxa total_results counts indexed species taxa, not observed species.
     detail = api(f'/taxa/{family_id}').get('results', [{}])[0]
     hierarchy = {HIERARCHY[a['rank']]: a.get('name', '') for a in detail.get('ancestors', []) if a.get('rank') in HIERARCHY}
-    counts_obs = api('/observations', {'taxon_id': family_id, 'per_page': 0}).get('total_results')
-    counts_species = api('/observations/species_counts', {'taxon_id': family_id, 'per_page': 0}).get('total_results')
-    return family_id, counts_obs, counts_species, hierarchy
+    species = api('/taxa', {'taxon_id': family_id, 'rank': 'species', 'per_page': 1}).get('total_results')
+    if species is None:
+        raise RuntimeError('Geen soortentotaal ontvangen')
+    obs = None
+    if include_observations:
+        obs = api('/observations', {'taxon_id': family_id, 'per_page': 0}).get('total_results')
+    return family_id, int(species), hierarchy, obs
 
 
 @st.cache_resource
@@ -73,17 +79,21 @@ def job_registry():
     return {'lock': threading.Lock(), 'running': set(), 'errors': {}}
 
 
-def background_job(key, ids):
+def background_job(key, ids, include_observations):
     registry = job_registry()
     try:
         with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {executor.submit(fetch_one, i): i for i in ids}
+            futures = {executor.submit(fetch_one, i, include_observations): i for i in ids}
             for future in as_completed(futures):
                 family_id = futures[future]
                 try:
-                    tid, obs, species, hierarchy = future.result()
+                    tid, species, hierarchy, obs = future.result()
                     with connection() as con:
-                        con.execute('INSERT OR REPLACE INTO family_data VALUES (?, ?, ?, ?, ?)', (tid, obs, species, json.dumps(hierarchy), time.time()))
+                        con.execute('INSERT OR REPLACE INTO family_species VALUES (?, ?, ?, ?)', (tid, species, json.dumps(hierarchy), time.time()))
+                        if include_observations:
+                            con.execute('UPDATE family_data SET counts_obs=? WHERE id=?', (obs, tid))
+                            if con.execute('SELECT changes()').fetchone()[0] == 0:
+                                con.execute('INSERT INTO family_data (id, counts_obs) VALUES (?, ?)', (tid, obs))
                 except Exception as e:
                     with registry['lock']:
                         registry['errors'][family_id] = str(e)
@@ -92,24 +102,29 @@ def background_job(key, ids):
             registry['running'].discard(key)
 
 
-def start_job(key, ids):
+def start_job(key, ids, include_observations):
     registry = job_registry()
     with registry['lock']:
         if key in registry['running'] or not ids:
             return
         registry['running'].add(key)
-    threading.Thread(target=background_job, args=(key, ids), daemon=True).start()
+    threading.Thread(target=background_job, args=(key, ids, include_observations), daemon=True).start()
 
 
-def read_cached(ids):
+def read_cached(ids, include_observations):
     if not ids:
         return {}
     result = {}
     with connection() as con:
         for start in range(0, len(ids), 400):
             batch = ids[start:start + 400]
-            for tid, obs, species, hierarchy, updated in con.execute('SELECT * FROM family_data WHERE id IN (' + ','.join('?' * len(batch)) + ')', batch):
-                result[tid] = (obs, species, json.loads(hierarchy or '{}'), updated)
+            marks = ','.join('?' * len(batch))
+            for tid, species, hierarchy, updated in con.execute('SELECT * FROM family_species WHERE id IN (' + marks + ')', batch):
+                result[tid] = [species, json.loads(hierarchy or '{}'), None]
+            if include_observations:
+                for tid, obs in con.execute('SELECT id, counts_obs FROM family_data WHERE id IN (' + marks + ')', batch):
+                    if tid in result:
+                        result[tid][2] = obs
     return result
 
 
@@ -131,7 +146,7 @@ with st.sidebar:
         st.stop()
     selected = st.selectbox('Taxon', matches, format_func=lambda x: f"{x['name']} · {x.get('preferred_common_name', '')} · ID {x['id']}")
     st.divider()
-    st.caption('De eerste berekening verloopt automatisch op de achtergrond. Eerder opgehaalde resultaten worden bewaard.')
+    st.caption('Soortenaantallen worden automatisch berekend. Waarnemingen alleen op ordeniveau. Resultaten worden lokaal gecachet.')
 
 st.subheader(selected['name'])
 st.write(f"**Rang:** {level} · **iNaturalist taxon-ID:** {selected['id']}")
@@ -148,14 +163,15 @@ if not families:
     st.stop()
 
 ids = [int(f['id']) for f in families]
-key = str(selected['id'])
+include_observations = rank == 'order'
+key = str(selected['id']) + ('_order' if include_observations else '_species')
 st.metric('Families gevonden', len(ids))
 st.caption('Volgorde: rijk → stam → klasse → orde → familie. Binnen een orde alfabetisch; iNaturalist geeft geen betrouwbare fylogenetische volgorde.')
 
 @st.fragment(run_every='5s')
 def results_view():
-    cached = read_cached(ids)
-    missing = [i for i in ids if i not in cached]
+    cached = read_cached(ids, include_observations)
+    missing = [i for i in ids if i not in cached or (include_observations and cached[i][2] is None)]
     registry = job_registry()
     with registry['lock']:
         running = key in registry['running']
@@ -164,7 +180,7 @@ def results_view():
         # Avoid continuously retrying failed requests on each refresh.
         retryable = [i for i in missing if i not in errors]
         if retryable:
-            start_job(key, retryable)
+            start_job(key, retryable, include_observations)
             running = True
     complete = len(ids) - len(missing)
     st.subheader('Automatische verwerking')
@@ -183,12 +199,12 @@ def results_view():
     rows = []
     for f in families:
         tid = int(f['id'])
-        obs, species, h, _ = cached.get(tid, (None, None, {}, None))
-        rows.append({'Taxon ID': tid, **{name: h.get(name, '') for name in HIERARCHY.values()}, 'Familie': f['name'], 'Engelse naam': f.get('preferred_common_name', ''), 'Waarnemingen': obs, 'Waargenomen soorten': species, 'Kenmerk 1': '', 'Kenmerk 2': '', 'Kenmerk 3': ''})
+        species, h, obs = cached.get(tid, (None, {}, None))
+        rows.append({'Taxon ID': tid, **{name: h.get(name, '') for name in HIERARCHY.values()}, 'Familie': f['name'], 'Engelse naam': f.get('preferred_common_name', ''), 'Aantal soorten': species, **({'Waarnemingen': obs} if include_observations else {}), 'Kenmerk 1': '', 'Kenmerk 2': '', 'Kenmerk 3': ''})
     df = pd.DataFrame(rows).sort_values(['Rijk', 'Stam', 'Klasse', 'Orde', 'Familie'], kind='stable')
     st.subheader('Familieoverzicht')
     st.dataframe(df.drop(columns='Taxon ID'), hide_index=True, use_container_width=True, height=580)
     st.download_button('Download CSV', df.to_csv(index=False).encode('utf-8-sig'), file_name=f"inzicht_in_natuur_{selected['name']}.csv", mime='text/csv')
-    st.caption('Waargenomen soorten = soorten met minimaal één iNaturalist-waarneming, niet het totale aantal beschreven soorten. De drie familiekenmerken vereisen nog een aanvullende, gecontroleerde bron.')
+    st.caption('Aantal soorten = soort-taxa die iNaturalist in de familie indexeert; dit is niet noodzakelijk het volledige aantal wetenschappelijk beschreven soorten. Waarnemingen verschijnen alleen bij selectie van een orde. Familiekenmerken volgen later.')
 
 results_view()
