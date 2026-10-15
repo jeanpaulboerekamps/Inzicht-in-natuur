@@ -3,22 +3,28 @@ on:
   workflow_dispatch:
     inputs:
       count_species:
-        description: 'Bereken soortenaantallen (langzaam, herstartbaar via bewaarde database)'
+        description: 'Bereken soortenaantallen (veel extra API-verzoeken)'
         type: boolean
-        default: true
+        default: false
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
-      - run: python build_database.py ${{ inputs.count_species && '--count-species' || '' }}
-      - uses: actions/upload-artifact@v4
+      - name: Build database
+        run: python -u build_database.py ${{ inputs.count_species && '--count-species' || '' }}
+      - name: Upload database even if build fails
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: families-database
           path: families.sqlite3
+          if-no-files-found: warn
           retention-days: 30

@@ -1,0 +1,1 @@
+De echte workflow staat al in .github/workflows/build-database.yml (verborgen op sommige iPads). Deze zichtbare kopie is bedoeld om gemakkelijk terug te vinden. Plaats build-database.yml in GitHub onder .github/workflows/.
