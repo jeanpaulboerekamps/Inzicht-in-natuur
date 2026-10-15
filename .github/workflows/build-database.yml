@@ -21,6 +21,10 @@ jobs:
       - name: Create database if missing
         run: |
           if [ ! -f families.sqlite3 ]; then python -u build_database.py; fi
+      - name: Verify required scripts
+        run: |
+          test -f build_database.py || { echo "Missing build_database.py in repository root"; exit 1; }
+          test -f enrich_database.py || { echo "Missing enrich_database.py in repository root"; exit 1; }
       - name: Enrich taxonomy and optionally species counts
         run: python -u enrich_database.py ${{ inputs.count_species && '--count-species' || '' }}
       - name: Check database integrity
