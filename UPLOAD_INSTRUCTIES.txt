@@ -1,0 +1,11 @@
+INZICHT IN NATUUR V9 - GITHUB UPLOAD
+
+Upload alle bestanden uit deze ZIP naar de ROOT van je GitHub repository.
+Let op: enrich_database.py moet direct naast app.py staan, NIET in .github/workflows.
+Het workflowbestand hoort op .github/workflows/build-database.yml.
+Controleer na upload op de Code-tab dat enrich_database.py zichtbaar is.
+Start daarna Actions > Build family database > Run workflow.
+Laat count_species eerst UIT; soortentellingen kunnen veel tijd kosten.
+Download na een geslaagde run het artifact families-database en plaats families.sqlite3 in de root.
+
+De database in deze ZIP bevat 10747 families maar de taxonomische verrijking is nog niet uitgevoerd.
