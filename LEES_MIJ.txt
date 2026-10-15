@@ -1,0 +1,15 @@
+INZICHT IN NATUUR - HERSTEL V9
+
+De database bevat 10.747 families en 10.725 ingevulde soortenaantallen.
+
+1. Upload families.sqlite3 naar de ROOT van de GitHub-repository en vervang het bestaande bestand.
+2. Upload .github/workflows/complete-species-counts.yml naar hetzelfde pad in GitHub.
+   Laat de bestaande workflow build-database.yml staan.
+3. Ga naar Actions > Complete family species counts > Run workflow.
+4. Download na afloop het artifact families-database-completed.
+5. Vervang de database in de repository door het bestand uit het artifact.
+
+De workflow haalt alleen nog ontbrekende soortenaantallen op.
+De 3 kenmerkenkolommen zijn nog leeg: het genereren daarvan is een aparte vervolgstap.
+
+Let op: upload de bestanden met behoud van mapstructuur.
