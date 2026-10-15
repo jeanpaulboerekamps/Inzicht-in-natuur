@@ -1,0 +1,48 @@
+name: Complete family species counts
+on:
+  workflow_dispatch:
+
+jobs:
+  complete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Check uploaded snapshot
+        run: |
+          python - <<'PYCODE'
+          import sqlite3
+          with sqlite3.connect('families.sqlite3') as db:
+              n = db.execute('SELECT COUNT(*) FROM families').fetchone()[0]
+              missing = db.execute('SELECT COUNT(*) FROM families WHERE species_count IS NULL').fetchone()[0]
+              print(f'Snapshot: {n} families; {missing} species counts missing')
+              assert n >= 10747, 'Upload the supplied families.sqlite3 before running'
+              assert missing <= 100, 'Wrong database: too many species counts missing'
+          PYCODE
+      - name: Complete only missing counts
+        run: python -u enrich_database.py --count-species
+      - name: Verify database
+        run: |
+          python - <<'PYCODE'
+          import sqlite3
+          with sqlite3.connect('families.sqlite3') as db:
+              print('Integrity:', db.execute('PRAGMA integrity_check').fetchone()[0])
+              print('Families:', db.execute('SELECT COUNT(*) FROM families').fetchone()[0])
+              print('Missing counts:', db.execute('SELECT COUNT(*) FROM families WHERE species_count IS NULL').fetchone()[0])
+              assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+          PYCODE
+      - name: Upload updated database
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: families-database-completed
+          path: families.sqlite3
+          if-no-files-found: error
+          retention-days: 30
