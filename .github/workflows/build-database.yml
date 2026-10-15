@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       count_species:
-        description: 'Bereken soortenaantallen (veel extra API-verzoeken)'
+        description: 'Bereken ook alle soortenaantallen (kan uren duren)'
         type: boolean
         default: false
 jobs:
@@ -18,13 +18,26 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
-      - name: Build database
-        run: python -u build_database.py ${{ inputs.count_species && '--count-species' || '' }}
+      - name: Create database if missing
+        run: |
+          if [ ! -f families.sqlite3 ]; then python -u build_database.py; fi
+      - name: Enrich taxonomy and optionally species counts
+        run: python -u enrich_database.py ${{ inputs.count_species && '--count-species' || '' }}
+      - name: Check database integrity
+        run: |
+          python - <<'PY'
+          import sqlite3
+          c=sqlite3.connect('families.sqlite3')
+          n=c.execute('select count(*) from families').fetchone()[0]
+          filled=c.execute('select count(*) from families where kingdom is not null').fetchone()[0]
+          print('Families:',n,'with kingdom:',filled)
+          assert n>10000 and filled/n>.9
+          PY
       - name: Upload database even if build fails
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: families-database
           path: families.sqlite3
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
