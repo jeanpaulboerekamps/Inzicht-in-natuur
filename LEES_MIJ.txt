@@ -1,9 +1,8 @@
-V12: proef met 100 families uit verschillende rijken.
-1. Upload families.sqlite3 en build_features_v12.py naar de hoofdmap van GitHub.
-2. Upload research-family-features.yml vanuit GITHUB_WORKFLOWS_ZICHTBAAR naar .github/workflows/.
-3. Start Actions > Research family characteristics V12 > Run workflow.
-4. Download het artifact family-feature-research-v12 en stuur het hier terug.
+INZICHT IN NATUUR V13 – kwaliteitsproef
 
-LET OP: V12 verzamelt controleerbare kandidaat-beschrijvingen uit GBIF.
-De velden feature1, feature2, feature3 blijven leeg totdat onderscheidende kenmerken inhoudelijk gecontroleerd zijn.
-GBIF is een proefbron, geen garantie voor beschrijvingen van alle families.
+Upload app.py, families.sqlite3 en requirements.txt naar de hoofdmap van je GitHub-repository.
+De 12 families hebben drie Engelstalige CONCEPT-kenmerken, nog NIET bron-geverifieerd.
+Bekijk kenmerken_review.csv om de inhoud en uitzonderingen te beoordelen.
+De overige 10.735 families blijven zonder kenmerken. Alle 10.747 soortenaantallen blijven behouden.
+Er is bewust geen nieuwe GitHub-workflow: deze versie toetst eerst de inhoudelijke kwaliteit.
+Bestaande workflows in GitHub hoeven niet te worden verwijderd.
