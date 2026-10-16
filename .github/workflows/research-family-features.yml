@@ -1,0 +1,46 @@
+name: Research family characteristics V12
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Families in initial test'
+        required: true
+        default: '100'
+      delay:
+        description: 'Seconds between GBIF requests'
+        required: true
+        default: '1.5'
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Research sourced descriptions (no unverified traits)
+        run: python -u build_features_v12.py --limit "${{ inputs.limit }}" --delay "${{ inputs.delay }}"
+      - name: Verify database
+        if: always()
+        run: |
+          python - <<'PY'
+          import sqlite3
+          c=sqlite3.connect('families.sqlite3')
+          print('Integrity:',c.execute('PRAGMA integrity_check').fetchone()[0])
+          print('Families:',c.execute('SELECT COUNT(*) FROM families').fetchone()[0])
+          print('Missing species counts:',c.execute('SELECT COUNT(*) FROM families WHERE species_count IS NULL').fetchone()[0])
+          print('Research rows:',c.execute('SELECT COUNT(*) FROM feature_research').fetchone()[0])
+          PY
+      - name: Download research results and checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-feature-research-v12
+          path: |
+            families.sqlite3
+            feature_research_review.csv
+          retention-days: 30
