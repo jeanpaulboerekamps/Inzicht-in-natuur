@@ -1,8 +1,4 @@
-INZICHT IN NATUUR V13 – kwaliteitsproef
-
-Upload app.py, families.sqlite3 en requirements.txt naar de hoofdmap van je GitHub-repository.
-De 12 families hebben drie Engelstalige CONCEPT-kenmerken, nog NIET bron-geverifieerd.
-Bekijk kenmerken_review.csv om de inhoud en uitzonderingen te beoordelen.
-De overige 10.735 families blijven zonder kenmerken. Alle 10.747 soortenaantallen blijven behouden.
-Er is bewust geen nieuwe GitHub-workflow: deze versie toetst eerst de inhoudelijke kwaliteit.
-Bestaande workflows in GitHub hoeven niet te worden verwijderd.
+V14 – family detail view
+Replace ONLY app.py in the root of your GitHub repository.
+Keep the existing families.sqlite3 and all workflows unchanged.
+In Streamlit, click a family row to show its detailed characteristics below the table.
