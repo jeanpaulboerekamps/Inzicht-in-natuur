@@ -1,15 +1,9 @@
-INZICHT IN NATUUR - HERSTEL V9
+V12: proef met 100 families uit verschillende rijken.
+1. Upload families.sqlite3 en build_features_v12.py naar de hoofdmap van GitHub.
+2. Upload research-family-features.yml vanuit GITHUB_WORKFLOWS_ZICHTBAAR naar .github/workflows/.
+3. Start Actions > Research family characteristics V12 > Run workflow.
+4. Download het artifact family-feature-research-v12 en stuur het hier terug.
 
-De database bevat 10.747 families en 10.725 ingevulde soortenaantallen.
-
-1. Upload families.sqlite3 naar de ROOT van de GitHub-repository en vervang het bestaande bestand.
-2. Upload .github/workflows/complete-species-counts.yml naar hetzelfde pad in GitHub.
-   Laat de bestaande workflow build-database.yml staan.
-3. Ga naar Actions > Complete family species counts > Run workflow.
-4. Download na afloop het artifact families-database-completed.
-5. Vervang de database in de repository door het bestand uit het artifact.
-
-De workflow haalt alleen nog ontbrekende soortenaantallen op.
-De 3 kenmerkenkolommen zijn nog leeg: het genereren daarvan is een aparte vervolgstap.
-
-Let op: upload de bestanden met behoud van mapstructuur.
+LET OP: V12 verzamelt controleerbare kandidaat-beschrijvingen uit GBIF.
+De velden feature1, feature2, feature3 blijven leeg totdat onderscheidende kenmerken inhoudelijk gecontroleerd zijn.
+GBIF is een proefbron, geen garantie voor beschrijvingen van alle families.
