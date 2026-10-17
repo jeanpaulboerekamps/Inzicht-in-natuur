@@ -3,17 +3,17 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: 'Number of families to sample across kingdoms'
+        description: 'Number of families (existing 20-family pilot)'
         default: '20'
         required: true
-      retry_missing:
-        description: 'Retry families without a source'
+      retry:
+        description: 'Recheck families already processed in v17'
         type: boolean
         default: false
 jobs:
   research:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
@@ -22,20 +22,18 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install requests
-      - name: Collect sourced introductory material
+      - name: Collect multi-source evidence
         env:
           LIMIT: ${{ inputs.limit }}
-          RETRY: ${{ inputs.retry_missing }}
+          RETRY: ${{ inputs.retry }}
         run: |
-          if [ "$RETRY" = "true" ]; then
-            python -u research_family_profiles.py --limit "$LIMIT" --retry-missing
-          else
-            python -u research_family_profiles.py --limit "$LIMIT"
-          fi
+          ARGS=""
+          if [ "$RETRY" = "true" ]; then ARGS="--retry"; fi
+          python -u research_family_profiles.py --limit "$LIMIT" --delay 1.5 $ARGS
       - name: Upload database checkpoint
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: family-encyclopedia-research
+          name: family-encyclopedia-research-v17
           path: families.sqlite3
           retention-days: 30
