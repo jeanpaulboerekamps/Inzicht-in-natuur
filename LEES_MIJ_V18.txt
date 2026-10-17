@@ -1,0 +1,15 @@
+VERSIE 18 — Broncontrole en Nederlandstalige concepten
+
+De 20 pilotfamilies en de v17-bronrecords zijn bewaard. De nieuwe workflow 'Build Dutch family profile drafts' zet bestaand Wikipedia-bronmateriaal om in Nederlandse concepten en feitkaarten. Hiervoor is een eigen OpenAI API-sleutel nodig, toegevoegd in GitHub Settings > Secrets and variables > Actions als OPENAI_API_KEY. API-gebruik kan kosten veroorzaken.
+
+BELANGRIJK: Wikidata-labels zijn onvoldoende voor taxonomische validatie. Ze worden niet gebruikt voor biologische claims. GBIF-taxonomierecords leveren evenmin biologische feiten. Een 404 bij Wikipedia is normaal bij ontbrekende pagina's. De workflow hallucineert geen feiten wanneer er onvoldoende bruikbare brontekst is.
+
+STAPPEN
+1. Upload alle bestanden, inclusief .github/workflows/build-family-narratives.yml.
+2. Voeg desgewenst OPENAI_API_KEY als repository secret toe (deel de sleutel nooit in chat).
+3. Actions > Build Dutch family profile drafts > Run workflow > limit 20.
+4. Download artifact family-narratives-v18 en stuur dat terug ter inhoudelijke controle.
+
+Zonder sleutel wordt uitsluitend bronvalidatiemetadata aangemaakt en geen tekst gegenereerd. De concepten zijn niet automatisch geverifieerd; publiceer ze niet als gecontroleerde feiten.
+
+De oude research workflow blijft beschikbaar. Voor verdere uitbreiding naar bronnen met biologische informatie is een volgende onderzoeksfase nodig; de huidige brondata bestaan grotendeels uit taxonomie.

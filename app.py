@@ -5,7 +5,7 @@ import streamlit as st
 DB=Path(__file__).with_name('families.sqlite3')
 st.set_page_config(page_title='Inzicht in natuur',layout='wide')
 st.title('🌿 Inzicht in natuur')
-st.caption('Taxonomische encyclopedie van families')
+st.caption('Taxonomic encyclopedia of families')
 if not DB.exists():st.error('families.sqlite3 ontbreekt');st.stop()
 @st.cache_data(show_spinner=False)
 def load(mtime):
@@ -54,19 +54,21 @@ if event.selection.rows:
         if prof.empty:st.info('Voor deze familie is nog geen encyclopedisch profiel onderzocht.')
         else:
             r=prof.iloc[0]
-            st.subheader('Introductie (bronmateriaal, nog niet redactioneel gecontroleerd)')
-            st.write(r.introduction if pd.notna(r.introduction) and r.introduction else 'Nog geen betrouwbare introductie beschikbaar.')
+            st.subheader('Introduction')
+            if str(r.status).startswith('draft'):st.warning('Draft based on source text — not yet fact-checked. Consult the original sources.')
+            elif r.status != 'reviewed':st.caption('Bronmateriaal, nog niet redactioneel gecontroleerd.')
+            st.write(r.introduction if pd.notna(r.introduction) and r.introduction else 'No verified introduction available yet.')
             st.caption(f'Onderzoeksstatus: {r.status}')
             ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
             if not ff.empty:
-                st.subheader('Bijzonderheden')
+                st.subheader('Interesting facts')
                 for _,fact in ff.iterrows():
                     st.markdown(f'**{fact.title}**')
                     st.write(fact.body)
                     if pd.notna(fact.source_url) and fact.source_url:st.markdown(f'[Bron]({fact.source_url})')
             ev=evidence[evidence.family_id==rec.id] if not evidence.empty else pd.DataFrame()
             if not ev.empty:
-                st.subheader('Aanvullend bronmateriaal')
+                st.subheader('Additional source material')
                 st.caption('Automatisch verzamelde gegevens; nog geen gevalideerde bijzonderheden.')
                 for _,e in ev.iterrows():
                     with st.expander(f'{e.source_name} · {e.evidence_type}'):

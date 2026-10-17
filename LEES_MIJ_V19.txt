@@ -1,0 +1,12 @@
+Version 19 — English family profiles without OpenAI API
+
+The new GitHub workflow is:
+.github/workflows/build-english-profiles.yml
+
+Run Actions > Build English family profiles (no AI) > Run workflow, limit 20.
+Download artifact family-english-profiles-v19. It contains the updated SQLite database.
+To use the updated profiles in Streamlit, replace families.sqlite3 in the repository with the database from the artifact.
+
+The workflow uses only the evidence ALREADY present in family_evidence; it does not fetch new sources. It creates an English introduction only when suitable English text exists and references the correct family name. It deliberately does NOT invent fact cards or paraphrase unsupported claims. Introductory extracts are labeled as unreviewed drafts. Review source licensing before public redistribution.
+
+The previous AI workflow remains available but is NOT needed for version 19.
