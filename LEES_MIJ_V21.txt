@@ -1,0 +1,1 @@
+v21: quality filtering and five editorial pilot facts for Orchidaceae, Geometridae, Cerambycidae. These facts and source links require human verification. Run Improve family facts (pilot, no AI), limit 20. The database contains the latest v20 artifact. No AI API required.
