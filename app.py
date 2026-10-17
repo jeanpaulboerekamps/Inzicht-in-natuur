@@ -15,8 +15,9 @@ def load(mtime):
         profiles=pd.read_sql_query('SELECT * FROM family_profiles',c) if 'family_profiles' in tables else pd.DataFrame()
         facts=pd.read_sql_query('SELECT * FROM family_facts ORDER BY position',c) if 'family_facts' in tables else pd.DataFrame()
         sources=pd.read_sql_query('SELECT * FROM family_sources',c) if 'family_sources' in tables else pd.DataFrame()
-        return f,profiles,facts,sources
-f,profiles,facts,sources=load(DB.stat().st_mtime_ns)
+        evidence=pd.read_sql_query('SELECT * FROM family_evidence ORDER BY source_name',c) if 'family_evidence' in tables else pd.DataFrame()
+        return f,profiles,facts,sources,evidence
+f,profiles,facts,sources,evidence=load(DB.stat().st_mtime_ns)
 st.caption(f'{len(f):,} families · {len(profiles):,} onderzoeksprofielen')
 with st.sidebar:
     st.header('Filters')
@@ -53,7 +54,7 @@ if event.selection.rows:
         if prof.empty:st.info('Voor deze familie is nog geen encyclopedisch profiel onderzocht.')
         else:
             r=prof.iloc[0]
-            st.subheader('Introductie')
+            st.subheader('Introductie (bronmateriaal, nog niet redactioneel gecontroleerd)')
             st.write(r.introduction if pd.notna(r.introduction) and r.introduction else 'Nog geen betrouwbare introductie beschikbaar.')
             st.caption(f'Onderzoeksstatus: {r.status}')
             ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
@@ -63,6 +64,14 @@ if event.selection.rows:
                     st.markdown(f'**{fact.title}**')
                     st.write(fact.body)
                     if pd.notna(fact.source_url) and fact.source_url:st.markdown(f'[Bron]({fact.source_url})')
+            ev=evidence[evidence.family_id==rec.id] if not evidence.empty else pd.DataFrame()
+            if not ev.empty:
+                st.subheader('Aanvullend bronmateriaal')
+                st.caption('Automatisch verzamelde gegevens; nog geen gevalideerde bijzonderheden.')
+                for _,e in ev.iterrows():
+                    with st.expander(f'{e.source_name} · {e.evidence_type}'):
+                        st.write(e.text)
+                        st.markdown(f'[Bekijk oorspronkelijke bron]({e.source_url})')
             ss=sources[sources.family_id==rec.id] if not sources.empty else pd.DataFrame()
             if not ss.empty:
                 st.subheader('Bronnen')

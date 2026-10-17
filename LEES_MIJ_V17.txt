@@ -1,0 +1,27 @@
+Inzicht in natuur v17 — tweede onderzoeksronde
+
+Deze ZIP bevat de bestaande SQLite-database uit het aangeleverde artifact,
+de applicatie en de volledige GitHub-workflows. De zichtbare map
+GITHUB_WORKFLOWS_ZICHTBAAR is uitsluitend een kopie.
+
+Upload gewijzigde bestanden naar GitHub, inclusief:
+- app.py
+- research_family_profiles.py
+- families.sqlite3
+- .github/workflows/research-family-profiles.yml
+
+Start GitHub Actions > Research family encyclopedia profiles > Run workflow
+met limit=20 en retry=false.
+Download daarna artifact family-encyclopedia-research-v17.
+
+Wat deze versie WEL doet: GBIF, Wikidata en Wikipedia afzonderlijk
+raadplegen, 429-vertraging/retries toepassen, gegevens met bron bewaren,
+reeds uitgevoerde v17-runs overslaan en bronmateriaal tonen in de app.
+
+Wat deze versie NOG NIET doet: automatisch Nederlandse verhalen en
+losse geverifieerde bijzonderheden schrijven. Daarvoor is een aparte
+redactionele/AI-stap nodig; bronmateriaal wordt niet als bewezen feit
+gepresenteerd. Een 429 kan ook met vertraging blijven optreden.
+
+De oorspronkelijke v16-profielen blijven aanwezig. De app vermeldt
+expliciet dat dit ongecontroleerd bronmateriaal is.
