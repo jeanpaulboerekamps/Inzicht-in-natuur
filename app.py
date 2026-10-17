@@ -2,86 +2,69 @@ from pathlib import Path
 import sqlite3
 import pandas as pd
 import streamlit as st
-
-DB = Path(__file__).with_name('families.sqlite3')
-st.set_page_config(page_title='Inzicht in Natuur', layout='wide')
-st.title('🌿 Inzicht in Natuur')
-st.caption('Taxonomic family encyclopedia · offline SQLite snapshot')
-if not DB.exists():
-    st.error('families.sqlite3 is missing.'); st.stop()
-
+DB=Path(__file__).with_name('families.sqlite3')
+st.set_page_config(page_title='Inzicht in natuur',layout='wide')
+st.title('🌿 Inzicht in natuur')
+st.caption('Taxonomische encyclopedie van families')
+if not DB.exists():st.error('families.sqlite3 ontbreekt');st.stop()
 @st.cache_data(show_spinner=False)
 def load(mtime):
-    with sqlite3.connect(f'file:{DB}?mode=ro', uri=True) as con:
-        return pd.read_sql_query('''SELECT f.id AS taxon_id, f.kingdom AS Kingdom,
-        f.phylum AS Phylum, f.class_name AS Class, f.order_name AS "Order",
-        f.name AS Family, f.common_name AS english_name, f.species_count AS species,
-        f.feature1 AS feature1, f.feature2 AS feature2, f.feature3 AS feature3,
-        q.status AS feature_status, q.exceptions_note AS exceptions,
-        q.source_reference AS source_reference
-        FROM families f LEFT JOIN feature_quality_review q ON f.id=q.family_id''', con)
-
-all_df = load(DB.stat().st_mtime_ns)
-a,b,c=st.columns(3)
-a.metric('Families',f'{len(all_df):,}')
-b.metric('Species counts',f'{all_df.species.notna().sum():,}')
-c.metric('Families with draft features',f'{all_df.feature1.notna().sum():,}')
-
+    with sqlite3.connect(f'file:{DB}?mode=ro',uri=True) as c:
+        f=pd.read_sql_query('SELECT id,kingdom,phylum,class_name,order_name,name,common_name,species_count FROM families',c)
+        tables={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        profiles=pd.read_sql_query('SELECT * FROM family_profiles',c) if 'family_profiles' in tables else pd.DataFrame()
+        facts=pd.read_sql_query('SELECT * FROM family_facts ORDER BY position',c) if 'family_facts' in tables else pd.DataFrame()
+        sources=pd.read_sql_query('SELECT * FROM family_sources',c) if 'family_sources' in tables else pd.DataFrame()
+        return f,profiles,facts,sources
+f,profiles,facts,sources=load(DB.stat().st_mtime_ns)
+st.caption(f'{len(f):,} families · {len(profiles):,} onderzoeksprofielen')
 with st.sidebar:
     st.header('Filters')
-    search=st.text_input('Search family, taxonomy and features')
-    filters={}
-    for col in ['Kingdom','Phylum','Class','Order']:
-        options=sorted(str(x) for x in all_df[col].dropna().unique() if str(x).strip())
-        filters[col]=st.selectbox(col,['All']+options)
-    only=st.checkbox('Only families with draft features')
-
-df=all_df
-for col,value in filters.items():
-    if value!='All': df=df[df[col]==value]
-if only: df=df[df.feature1.notna()]
-if search:
-    cols=['Kingdom','Phylum','Class','Order','Family','english_name','feature1','feature2','feature3']
-    mask=df[cols].fillna('').astype(str).apply(lambda s:s.str.contains(search,case=False,regex=False)).any(axis=1)
-    df=df[mask]
-mode=st.radio('Sort',['Taxonomic','Most species','Alphabetical'],horizontal=True)
-if mode=='Most species':df=df.sort_values('species',ascending=False,na_position='last')
-elif mode=='Alphabetical':df=df.sort_values('Family')
-else:df=df.sort_values(['Kingdom','Phylum','Class','Order','Family'],na_position='last')
-
-st.subheader(f'{len(df):,} families')
-st.caption('Select a row to view family details. The table contains taxonomy only.')
-visible=['Kingdom','Phylum','Class','Order','Family']
-selected=st.dataframe(df[visible],use_container_width=True,hide_index=True,height=590,
-    on_select='rerun',selection_mode='single-row',key='family_table')
-rows=selected.selection.rows
-if rows:
-    record=df.iloc[rows[0]]
+    q=st.text_input('Zoek familie of taxonomie')
+    options=[('kingdom','Rijk'),('phylum','Stam'),('class_name','Klasse'),('order_name','Orde')]
+    filtered=f.copy()
+    for field,label in options:
+        vals=sorted(filtered[field].dropna().astype(str).unique())
+        selected=st.selectbox(label,['Alle']+vals)
+        if selected!='Alle':filtered=filtered[filtered[field]==selected]
+    only=st.checkbox('Alleen families met profiel')
+    if only:filtered=filtered[filtered.id.isin(profiles.family_id)] if not profiles.empty else filtered.iloc[0:0]
+if q:
+    mask=filtered[['kingdom','phylum','class_name','order_name','name','common_name']].fillna('').astype(str).apply(lambda s:s.str.contains(q,case=False,regex=False)).any(axis=1)
+    filtered=filtered[mask]
+order=st.radio('Sortering',['Taxonomisch','Meeste soorten','Alfabetisch'],horizontal=True)
+if order=='Meeste soorten':filtered=filtered.sort_values('species_count',ascending=False,na_position='last')
+elif order=='Alfabetisch':filtered=filtered.sort_values('name')
+else:filtered=filtered.sort_values(['kingdom','phylum','class_name','order_name','name'],na_position='last')
+st.subheader(f'{len(filtered):,} families')
+view=filtered[['kingdom','phylum','class_name','order_name','name']].rename(columns={'kingdom':'Rijk','phylum':'Stam','class_name':'Klasse','order_name':'Orde','name':'Familie'})
+event=st.dataframe(view,hide_index=True,use_container_width=True,height=520,on_select='rerun',selection_mode='single-row',key='family_table')
+if event.selection.rows:
+    rec=filtered.iloc[event.selection.rows[0]]
     with st.container(border=True):
-        st.subheader(str(record['Family']))
-        if pd.notna(record.english_name) and str(record.english_name).strip():
-            st.caption(str(record.english_name))
-        lineage=' › '.join(str(record[x]) for x in visible[:-1] if pd.notna(record[x]) and str(record[x]).strip())
-        st.write(lineage)
-        left,right=st.columns(2)
-        left.metric('Species',f'{int(record.species):,}' if pd.notna(record.species) else 'Unknown')
-        right.metric('iNaturalist taxon ID',str(int(record.taxon_id)))
-        st.markdown('#### Distinguishing characteristics')
-        features=[record[x] for x in ('feature1','feature2','feature3') if pd.notna(record[x]) and str(record[x]).strip()]
-        if features:
-            for i,feature in enumerate(features,1):
-                st.markdown(f'**{i}.** {feature}')
+        st.header(rec['name'])
+        if pd.notna(rec.common_name):st.caption(rec.common_name)
+        st.caption(' › '.join(str(rec[k]) for k in ['kingdom','phylum','class_name','order_name'] if pd.notna(rec[k])))
+        a,b=st.columns(2)
+        a.metric('Soorten in iNaturalist',f'{int(rec.species_count):,}' if pd.notna(rec.species_count) else 'Onbekend')
+        b.metric('iNaturalist taxon-ID',str(rec.id))
+        st.caption('Waarnemingsaantallen zijn niet aanwezig in de aangeleverde database.')
+        prof=profiles[profiles.family_id==rec.id] if not profiles.empty else pd.DataFrame()
+        if prof.empty:st.info('Voor deze familie is nog geen encyclopedisch profiel onderzocht.')
         else:
-            st.info('No distinguishing characteristics recorded for this family yet.')
-        if pd.notna(record.feature_status) and str(record.feature_status).strip():
-            st.caption(f'Status: {record.feature_status}')
-        if pd.notna(record.exceptions) and str(record.exceptions).strip():
-            st.markdown('#### Exceptions and limitations')
-            st.write(record.exceptions)
-        if pd.notna(record.source_reference) and str(record.source_reference).strip():
-            st.markdown('#### Source')
-            st.write(record.source_reference)
-        if features and (pd.isna(record.feature_status) or str(record.feature_status).lower()!='verified'):
-            st.warning('Provisional characteristics: scientific source verification is still required.')
-else:
-    st.info('Click a family row above to open its details.')
+            r=prof.iloc[0]
+            st.subheader('Introductie')
+            st.write(r.introduction if pd.notna(r.introduction) and r.introduction else 'Nog geen betrouwbare introductie beschikbaar.')
+            st.caption(f'Onderzoeksstatus: {r.status}')
+            ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
+            if not ff.empty:
+                st.subheader('Bijzonderheden')
+                for _,fact in ff.iterrows():
+                    st.markdown(f'**{fact.title}**')
+                    st.write(fact.body)
+                    if pd.notna(fact.source_url) and fact.source_url:st.markdown(f'[Bron]({fact.source_url})')
+            ss=sources[sources.family_id==rec.id] if not sources.empty else pd.DataFrame()
+            if not ss.empty:
+                st.subheader('Bronnen')
+                for _,s in ss.iterrows():st.markdown(f'- [{s.source_name}]({s.url})')
+else:st.info('Klik op een familie in de tabel om het profiel te openen.')

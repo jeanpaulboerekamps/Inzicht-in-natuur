@@ -1,0 +1,11 @@
+VERSIE 16 — Encyclopedische familiepagina's
+
+- Bestaande taxonomie en soortenaantallen behouden.
+- Klik op een familierij voor introductie, bijzonderheden en bronnen.
+- Nieuwe workflow: .github/workflows/research-family-profiles.yml
+- Run workflow met limit=20 en download artifact family-encyclopedia-research.
+- Vervang families.sqlite3 in GitHub met het bestand uit dat artifact.
+- De workflow verzamelt voorlopig alleen brongebonden introductieteksten, geen AI-samenvattingen of losse weetjes.
+- Gevonden tekst kan Engels zijn en is nog niet inhoudelijk geverifieerd.
+- Er zijn geen waarnemingsaantallen aanwezig in de aangeleverde database.
+- Oudere feature-workflows blijven aanwezig maar zijn niet meer nodig voor deze aanpak.
