@@ -1,0 +1,35 @@
+name: Build English family profiles (no AI)
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Maximum researched families'
+        required: true
+        default: '20'
+      retry:
+        description: 'Rebuild rule-based English drafts'
+        type: boolean
+        default: false
+jobs:
+  profiles:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build English profiles from stored source texts
+        env:
+          LIMIT: ${{ inputs.limit }}
+          RETRY: ${{ inputs.retry }}
+        run: |
+          if [ "$RETRY" = "true" ]; then EXTRA="--retry"; else EXTRA=""; fi
+          python -u build_english_profiles.py --limit "$LIMIT" $EXTRA
+      - name: Upload enriched database
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-english-profiles-v19
+          path: families.sqlite3
+          retention-days: 30

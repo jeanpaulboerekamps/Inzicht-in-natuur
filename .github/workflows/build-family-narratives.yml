@@ -1,0 +1,38 @@
+name: Build Dutch family profile drafts
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Pilot families'
+        required: true
+        default: '20'
+      retry:
+        description: 'Regenerate existing drafts'
+        type: boolean
+        default: false
+jobs:
+  narratives:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate source-grounded Dutch drafts
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LIMIT: ${{ inputs.limit }}
+          RETRY: ${{ inputs.retry }}
+        run: |
+          if [ "$RETRY" = "true" ]; then EXTRA="--retry"; else EXTRA=""; fi
+          python -u build_family_narratives.py --limit "$LIMIT" $EXTRA
+      - name: Save database and drafts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-narratives-v18
+          path: families.sqlite3
+          retention-days: 30
