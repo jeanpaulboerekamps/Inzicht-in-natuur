@@ -1,0 +1,12 @@
+INZICHT IN NATUUR v20 — BIOLOGICAL FACTS PILOT
+
+1. Upload all files to your GitHub repository, including the hidden .github/workflows folder.
+2. On iPad the same workflow is duplicated in GITHUB_WORKFLOWS_ZICHTBAAR.
+3. GitHub Actions > Research biological family facts (no AI) > Run workflow; limit=20, refresh=false.
+4. Download artifact family-biological-facts-v20 and share it for quality review.
+
+No AI key required. Uses English Wikipedia article text where available, or cached English source introductions.
+Cards are literal source excerpts selected by biological keywords, NOT verified facts or synthesized family descriptions.
+Some families may receive no cards. Wikipedia rate limiting or unavailable pages can reduce coverage.
+All existing taxonomy and previous profiles are preserved.
+IMPORTANT: Artifact database is not automatically committed to the repository. Review and upload it to retain new results.

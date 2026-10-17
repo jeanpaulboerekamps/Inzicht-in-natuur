@@ -62,6 +62,7 @@ if event.selection.rows:
             ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
             if not ff.empty:
                 st.subheader('Interesting facts')
+                st.caption('Automatically selected source excerpts; not yet scientifically reviewed. Check the linked original source.')
                 for _,fact in ff.iterrows():
                     st.markdown(f'**{fact.title}**')
                     st.write(fact.body)
