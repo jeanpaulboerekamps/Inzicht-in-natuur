@@ -1,0 +1,41 @@
+name: Research family encyclopedia profiles
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Number of families to sample across kingdoms'
+        default: '20'
+        required: true
+      retry_missing:
+        description: 'Retry families without a source'
+        type: boolean
+        default: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Collect sourced introductory material
+        env:
+          LIMIT: ${{ inputs.limit }}
+          RETRY: ${{ inputs.retry_missing }}
+        run: |
+          if [ "$RETRY" = "true" ]; then
+            python -u research_family_profiles.py --limit "$LIMIT" --retry-missing
+          else
+            python -u research_family_profiles.py --limit "$LIMIT"
+          fi
+      - name: Upload database checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-encyclopedia-research
+          path: families.sqlite3
+          retention-days: 30
