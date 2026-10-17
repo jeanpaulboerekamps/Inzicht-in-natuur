@@ -1,0 +1,41 @@
+name: Research biological family facts (no AI)
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: Number of existing pilot families
+        default: '20'
+        required: true
+      refresh:
+        description: Recheck families already researched
+        type: boolean
+        default: false
+jobs:
+  biological-facts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Research and extract source-backed facts
+        env:
+          LIMIT: ${{ inputs.limit }}
+          REFRESH: ${{ inputs.refresh }}
+        run: |
+          if [ "$REFRESH" = "true" ]; then
+            python -u research_family_facts.py --limit "$LIMIT" --refresh
+          else
+            python -u research_family_facts.py --limit "$LIMIT"
+          fi
+      - name: Upload database checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-biological-facts-v20
+          path: families.sqlite3
+          retention-days: 30
