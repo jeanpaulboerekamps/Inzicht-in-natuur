@@ -1,0 +1,7 @@
+Inzicht in natuur v30 — uitgebreide bijzonderheden
+
+De 83 bijzonderheden van de 19 nieuwe testfamilies zijn redactioneel uitgebreid met concrete biologische uitleg. De bestaande Geometridae-teksten, foto's, app.py en taxonomie zijn ongewijzigd.
+
+In sommige kaarten staan nu twee alinea's. De nieuwe tekst is inhoudelijk samengesteld, maar niet per bewering extern geverifieerd. Bestaande achtergrondlinks zijn behouden.
+
+Upload alle bestanden naar de hoofdmap van de GitHub-repository. De map .github is inbegrepen. Er hoeft geen workflow te draaien.
