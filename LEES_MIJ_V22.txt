@@ -1,0 +1,12 @@
+INZICHT IN NATUUR — V22 (NEDERLANDSTALIGE FAMILIEPROFIELEN)
+
+20 families hebben een Nederlandstalige introductie en samen 42 bijzonderheden.
+De profielen zijn redactionele CONCEPTEN, niet onafhankelijk per claim gecontroleerd.
+Bronlinks verwijzen naar achtergrondpagina's, niet naar bewijs voor elke afzonderlijke bewering.
+Bestaande taxonomie, soortenaantallen en oude onderzoeksdata zijn behouden.
+
+De app leest rechtstreeks uit families.sqlite3. Er hoeft GEEN workflow te worden uitgevoerd.
+Upload app.py en families.sqlite3 (en desgewenst de overige bestanden) naar GitHub.
+De map GITHUB_WORKFLOWS_ZICHTBAAR is alleen een zichtbare kopie.
+
+Volgende stap: bronnen per bewering verifiëren en daarna stapsgewijs nieuwe families toevoegen.

@@ -54,15 +54,16 @@ if event.selection.rows:
         if prof.empty:st.info('Voor deze familie is nog geen encyclopedisch profiel onderzocht.')
         else:
             r=prof.iloc[0]
-            st.subheader('Introduction')
+            st.subheader('Introductie')
             if str(r.status).startswith('draft'):st.warning('Draft based on source text — not yet fact-checked. Consult the original sources.')
+            elif r.status == 'editorial_draft':st.info('Redactioneel samengesteld Nederlands concept. Inhoud en bronverwijzingen vereisen nog onafhankelijke controle.')
             elif r.status != 'reviewed':st.caption('Bronmateriaal, nog niet redactioneel gecontroleerd.')
             st.write(r.introduction if pd.notna(r.introduction) and r.introduction else 'No verified introduction available yet.')
             st.caption(f'Onderzoeksstatus: {r.status}')
             ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
             if not ff.empty:
-                st.subheader('Interesting facts')
-                st.caption('Automatically selected source excerpts; not yet scientifically reviewed. Check the linked original source.')
+                st.subheader('Bijzonderheden')
+                st.caption('Nederlandstalige redactionele concepten. Bronlinks zijn achtergrondverwijzingen; afzonderlijke beweringen zijn nog niet onafhankelijk geverifieerd.') if r.status == 'editorial_draft' else st.caption('Automatisch verzamelde fragmenten; nog niet wetenschappelijk gecontroleerd.')
                 for _,fact in ff.iterrows():
                     st.markdown(f'**{fact.title}**')
                     st.write(fact.body)
