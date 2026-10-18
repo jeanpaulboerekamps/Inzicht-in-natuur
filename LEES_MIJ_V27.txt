@@ -1,0 +1,1 @@
+Versie 27: unieke foto’s per familiepagina, specifieke rupsfoto’s via iNaturalist-larveannotaties en vrouwtjesfoto’s via vrouwelijke annotaties. Geen volwassen foto als vervanging voor een rups. Foto ontbreekt indien geen geschikte geannoteerde foto beschikbaar is. Geen workflow nodig.

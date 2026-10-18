@@ -39,54 +39,63 @@ def taxon_photo(scientific_name):
         return None
 
 @st.cache_data(ttl=604800,show_spinner=False)
-def observation_photo(scientific_name, larva=False):
-    """Fallback: photographed observation of the exact taxon, optionally larval stage."""
+def observation_photos(scientific_name, stage=None, sex=None):
+    """Find annotated iNaturalist observations; never substitute an adult for a larva."""
     try:
-        params={'taxon_name':scientific_name,'photos':'true','quality_grade':'research',
-                'per_page':20,'order_by':'votes'}
-        if larva:
-            # iNaturalist annotation: Life Stage (term 1), Larva (value 6).
-            params.update(term_id=1,term_value_id=6)
-        # Resolve taxon ID from exact autocomplete instead of fuzzy observation matching.
         tx=requests.get('https://api.inaturalist.org/v1/taxa/autocomplete',
-                        params={'q':scientific_name,'per_page':20},timeout=12,
-                        headers={'User-Agent':'InzichtInNatuur/1.0'})
+            params={'q':scientific_name,'per_page':20},timeout=12,
+            headers={'User-Agent':'InzichtInNatuur/1.0'})
         tx.raise_for_status()
-        matches=[t for t in tx.json().get('results',[]) if t.get('name','').lower()==scientific_name.lower() and t.get('rank')=='species']
-        if not matches:return None
-        params.pop('taxon_name',None);params['taxon_id']=matches[0]['id']
+        matches=[t for t in tx.json().get('results',[]) if t.get('name','').casefold()==scientific_name.casefold() and t.get('rank')=='species']
+        if not matches:return []
+        params={'taxon_id':matches[0]['id'],'photos':'true','quality_grade':'research',
+                'per_page':60,'order_by':'votes'}
+        # iNaturalist controlled annotations: Life Stage=1 / Larva=6; Sex=9 / Female=10.
+        if stage=='larva':params.update(term_id=1,term_value_id=6)
+        if sex=='female':params.update(term_id=9,term_value_id=10)
         r=requests.get('https://api.inaturalist.org/v1/observations',params=params,timeout=15,
                        headers={'User-Agent':'InzichtInNatuur/1.0'})
         r.raise_for_status()
+        result=[]
         for obs in r.json().get('results',[]):
+            annotations=obs.get('annotations') or []
+            if stage=='larva' and not any(a.get('controlled_attribute_id')==1 and a.get('controlled_value_id')==6 for a in annotations):continue
+            if sex=='female' and not any(a.get('controlled_attribute_id')==9 and a.get('controlled_value_id')==10 for a in annotations):continue
             for ph in obs.get('photos') or []:
                 url=ph.get('url')
                 if url:
-                    return (url.replace('square.','medium.'),
-                            'https://www.inaturalist.org/observations/'+str(obs['id']),
-                            ph.get('attribution') or 'iNaturalist')
-    except (requests.RequestException,ValueError,KeyError,TypeError):pass
-    return None
+                    result.append((url.replace('square.','medium.'),
+                        'https://www.inaturalist.org/observations/'+str(obs['id']),
+                        ph.get('attribution') or 'iNaturalist'))
+        return result
+    except (requests.RequestException,ValueError,KeyError,TypeError):return []
 
-# Taxonomically targeted images: no generic Commons search that can return another family.
 HEADER_TAXA=[('Geometra papilionaria','Groene spanner'),('Biston betularia','Berkenspanner'),('Operophtera brumata','Kleine wintervlinder')]
 FACT_TAXA={
- 'Een beroemd voorbeeld van evolutie':'Biston betularia',
- 'Smaragdgroene spanners':'Geometra papilionaria',
- 'Vrouwtjes zonder vliegvermogen':'Operophtera brumata',
- 'Tropische specialisten op waardplanten':'Eois pallidicosta',
- 'Een rups die de aarde opmeet':'Biston betularia',
- 'Takjes die tot leven komen':'Biston betularia',
- 'Een familie vol verschillende leefwijzen':'Geometra papilionaria',
+ 'Een beroemd voorbeeld van evolutie':('Biston betularia',None,None),
+ 'Smaragdgroene spanners':('Geometra papilionaria',None,None),
+ 'Vrouwtjes zonder vliegvermogen':('Operophtera brumata',None,'female'),
+ 'Tropische specialisten op waardplanten':('Eois pallidicosta',None,None),
+ 'Een rups die de aarde opmeet':('Biston betularia','larva',None),
+ 'Takjes die tot leven komen':('Operophtera brumata','larva',None),
+ 'Een familie vol verschillende leefwijzen':('Geometra papilionaria',None,None),
 }
 
-def render_taxon_photo(name,caption=None,larva=False):
-    found=(observation_photo(name,larva=True) if larva else None) or taxon_photo(name) or observation_photo(name)
-    if not found:return False
-    url,source,credit=found
-    st.image(url,use_container_width=True)
-    st.caption(f'{caption or name} · [Foto en naamsvermelding]({source})')
-    return True
+def render_taxon_photo(name,caption=None,stage=None,sex=None,used=None):
+    """One unique photo per page, and strict stage/sex matching for specialized cards."""
+    candidates=observation_photos(name,stage=stage,sex=sex)
+    if not stage and not sex:
+        default=taxon_photo(name)
+        if default:candidates=[default]+candidates
+    for url,source,credit in candidates:
+        # Avoid both identical files and multiple images from one observation.
+        photo_key=url.split('?')[0].replace('square.','').replace('medium.','').replace('large.','')
+        if used is not None and (photo_key in used or source in used):continue
+        if used is not None:used.update((photo_key,source))
+        st.image(url,use_container_width=True)
+        st.caption(f'{caption or name} · [Foto en naamsvermelding]({source})')
+        return True
+    return False
 
 with st.sidebar:
     with st.expander('Over bronnen en betrouwbaarheid'):
@@ -94,7 +103,7 @@ with st.sidebar:
                  'De teksten kunnen onvolkomenheden bevatten en zijn niet allemaal onafhankelijk per bewering geverifieerd. '
                  'Raadpleeg bij twijfel de vermelde oorspronkelijke bronnen. '
                  'Foto’s worden aan de hand van exacte wetenschappelijke soortnamen opgehaald; '
-                 'als een passende foto ontbreekt, tonen we geen willekeurige vervanging.')
+                 'bij specifieke levensfasen of geslachten tonen we uitsluitend overeenkomstig geannoteerde waarnemingen. Ontbreekt die, dan tonen we geen foto.')
 
 st.caption(f'{len(f):,} families · {len(profiles):,} onderzoeksprofielen')
 with st.sidebar:
@@ -122,11 +131,12 @@ if event.selection.rows:
     rec=filtered.iloc[event.selection.rows[0]]
     with st.container(border=True):
         st.header(rec['name'])
+        used_photos=set()
         if rec['name']=='Geometridae':
             photo_cols=st.columns(3,gap='small')
             for col,(species,label) in zip(photo_cols,HEADER_TAXA):
                 with col:
-                    render_taxon_photo(species,label)
+                    render_taxon_photo(species,label,used=used_photos)
         if pd.notna(rec.common_name):st.caption(rec.common_name)
         st.caption(' › '.join(str(rec[k]) for k in ['kingdom','phylum','class_name','order_name'] if pd.notna(rec[k])))
         a,b=st.columns(2)
@@ -149,9 +159,8 @@ if event.selection.rows:
                         if rec['name']=='Geometridae' and fact.title in FACT_TAXA:
                             left,right=st.columns([1,3],gap='medium')
                             with left:
-                                species=FACT_TAXA.get(fact.title)
-                                if species:render_taxon_photo(species,larva=fact.title in ('Een rups die de aarde opmeet','Takjes die tot leven komen'))
-                                # If a larva photo is unavailable, show the exact species as a representative, not a generic search result.
+                                species,stage,sex=FACT_TAXA[fact.title]
+                                render_taxon_photo(species,stage=stage,sex=sex,used=used_photos)
                             with right:
                                 st.markdown(f'#### {fact.title}')
                                 st.write(fact.body)
