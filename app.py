@@ -19,43 +19,49 @@ def load(mtime):
         evidence=pd.read_sql_query('SELECT * FROM family_evidence ORDER BY source_name',c) if 'family_evidence' in tables else pd.DataFrame()
         return f,profiles,facts,sources,evidence
 f,profiles,facts,sources,evidence=load(DB.stat().st_mtime_ns)
+# Images are resolved by exact scientific taxon name, not a free-text image search.
+# iNaturalist taxon photos are supplied with a taxon ID and licensing metadata.
 @st.cache_data(ttl=604800,show_spinner=False)
-def commons_photo(query):
-    """Find a freely licensed Wikimedia Commons image; never fabricate a URL."""
+def taxon_photo(scientific_name):
     try:
-        r=requests.get('https://commons.wikimedia.org/w/api.php',params={
-            'action':'query','generator':'search','gsrsearch':'filetype:bitmap '+query,
-            'gsrnamespace':6,'gsrlimit':8,'prop':'imageinfo','iiprop':'url|extmetadata',
-            'iiurlwidth':520,'format':'json'},headers={'User-Agent':'InzichtInNatuur/1.0 (educational encyclopedia; contact via GitHub)'},timeout=12)
-        r.raise_for_status()
-        for page in r.json().get('query',{}).get('pages',{}).values():
-            info=(page.get('imageinfo') or [{}])[0]
-            meta=info.get('extmetadata',{})
-            license_name=meta.get('LicenseShortName',{}).get('value','')
-            if not any(x in license_name.lower() for x in ('cc','public domain','pd-')):continue
-            url=info.get('thumburl') or info.get('url')
-            if url and url.lower().split('?')[0].endswith(('.jpg','.jpeg','.png','.webp')):
-                return url,info.get('descriptionurl',''),license_name
-    except (requests.RequestException,ValueError,KeyError):pass
-    return None,None,None
+        response=requests.get('https://api.inaturalist.org/v1/taxa/autocomplete',
+            params={'q':scientific_name,'per_page':20},timeout=12,
+            headers={'User-Agent':'InzichtInNatuur/1.0 (educational project)'})
+        response.raise_for_status()
+        matches=[t for t in response.json().get('results',[]) if t.get('name','').lower()==scientific_name.lower() and t.get('rank')=='species']
+        if not matches:return None
+        t=matches[0]; photo=t.get('default_photo') or {}
+        url=photo.get('medium_url') or photo.get('url')
+        if not url:return None
+        # iNaturalist records the license; attribution links to the exact taxon.
+        return (url,'https://www.inaturalist.org/taxa/'+str(t['id']),photo.get('attribution') or 'iNaturalist')
+    except (requests.RequestException,ValueError,KeyError,TypeError):
+        return None
 
-GEOMETRIDAE_PHOTOS={
- 'Een rups die de aarde opmeet':'Geometridae inchworm caterpillar looping',
- 'Takjes die tot leven komen':'Geometridae caterpillar twig mimic',
- 'Een beroemd voorbeeld van evolutie':'Biston betularia peppered moth',
- 'Smaragdgroene spanners':'Geometra papilionaria moth',
- 'Vrouwtjes zonder vliegvermogen':'Operophtera brumata female',
- 'Tropische specialisten op waardplanten':'Eois moth Geometridae',
- 'Een familie vol verschillende leefwijzen':'Geometridae moth'
+# Taxonomically targeted images: no generic Commons search that can return another family.
+HEADER_TAXA=[('Geometra papilionaria','Groene spanner'),('Biston betularia','Berkenspanner'),('Operophtera brumata','Kleine wintervlinder')]
+FACT_TAXA={
+ 'Een beroemd voorbeeld van evolutie':'Biston betularia',
+ 'Smaragdgroene spanners':'Geometra papilionaria',
+ 'Vrouwtjes zonder vliegvermogen':'Operophtera brumata',
+ 'Tropische specialisten op waardplanten':'Eois pallidicosta',
 }
 
-def show_photo(query):
-    url,source,license_name=commons_photo(query)
-    if url:
-        st.image(url,use_container_width=True)
-        if source:st.caption(f'[Foto: Wikimedia Commons · {license_name}]({source})')
-    else:
-        st.caption('Geen vrij herbruikbare foto gevonden.')
+def render_taxon_photo(name,caption=None):
+    found=taxon_photo(name)
+    if not found:return False
+    url,source,credit=found
+    st.image(url,use_container_width=True)
+    st.caption(f'{caption or name} · [Foto en naamsvermelding]({source})')
+    return True
+
+with st.sidebar:
+    with st.expander('Over bronnen en betrouwbaarheid'):
+        st.write('Familieprofielen zijn redactioneel samengesteld uit biologische bronnen. '
+                 'De teksten kunnen onvolkomenheden bevatten en zijn niet allemaal onafhankelijk per bewering geverifieerd. '
+                 'Raadpleeg bij twijfel de vermelde oorspronkelijke bronnen. '
+                 'Foto’s worden aan de hand van exacte wetenschappelijke soortnamen opgehaald; '
+                 'als een passende foto ontbreekt, tonen we geen willekeurige vervanging.')
 
 st.caption(f'{len(f):,} families · {len(profiles):,} onderzoeksprofielen')
 with st.sidebar:
@@ -84,7 +90,10 @@ if event.selection.rows:
     with st.container(border=True):
         st.header(rec['name'])
         if rec['name']=='Geometridae':
-            show_photo('Geometra papilionaria Geometridae moth')
+            photo_cols=st.columns(3,gap='small')
+            for col,(species,label) in zip(photo_cols,HEADER_TAXA):
+                with col:
+                    render_taxon_photo(species,label)
         if pd.notna(rec.common_name):st.caption(rec.common_name)
         st.caption(' › '.join(str(rec[k]) for k in ['kingdom','phylum','class_name','order_name'] if pd.notna(rec[k])))
         a,b=st.columns(2)
@@ -96,24 +105,21 @@ if event.selection.rows:
         else:
             r=prof.iloc[0]
             st.subheader('Introductie')
-            if str(r.status).startswith('draft'):st.warning('Draft based on source text — not yet fact-checked. Consult the original sources.')
-            elif r.status == 'editorial_draft':st.caption('Redactioneel samengesteld profiel · bronnen ter achtergrond, nog niet per bewering geverifieerd')
-            elif r.status != 'reviewed':st.caption('Bronmateriaal, nog niet redactioneel gecontroleerd.')
-            st.write(r.introduction if pd.notna(r.introduction) and r.introduction else 'No verified introduction available yet.')
+            intro=r.introduction if pd.notna(r.introduction) and r.introduction else 'Nog geen introductie beschikbaar.'
+            for paragraph in str(intro).split('\n\n'):
+                if paragraph.strip():st.markdown(paragraph.strip())
             # Onderzoeksstatus wordt intern bijgehouden
             ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
             if not ff.empty:
                 st.subheader('Bijzonderheden')
-                if r.status == 'editorial_draft':
-                    st.caption('Redactionele concepten; bronnen nog niet per bewering geverifieerd.')
-                else:
-                    st.caption('Automatisch verzamelde informatie; inhoudelijke controle nodig.')
                 for _,fact in ff.iterrows():
                     with st.container(border=True):
-                        if rec['name']=='Geometridae':
+                        if rec['name']=='Geometridae' and fact.title in FACT_TAXA:
                             left,right=st.columns([1,3],gap='medium')
                             with left:
-                                show_photo(GEOMETRIDAE_PHOTOS.get(fact.title,'Geometridae moth'))
+                                species=FACT_TAXA.get(fact.title)
+                                if species:render_taxon_photo(species)
+                                # For caterpillar-specific facts, do not show an adult moth as illustration.
                             with right:
                                 st.markdown(f'#### {fact.title}')
                                 st.write(fact.body)

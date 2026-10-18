@@ -1,0 +1,12 @@
+VERSIE 25 — Geometridae fotoselectie en opmaak
+
+- Drie soortspecifieke afbeeldingen boven de introductie, met verschillende vertegenwoordigers van de familie.
+- Introductie in drie alinea’s.
+- Foto’s op basis van exacte wetenschappelijke soortnaam via iNaturalist taxon-API; geen generieke zoekresultaten.
+- Voor groene spanners specifiek Geometra papilionaria.
+- Bij een niet-gecontroleerde afbeelding liever geen foto dan een verkeerde foto.
+- Betrouwbaarheidstoelichting één keer in zijbalk (uitklapbaar).
+- De database met families en alle eerdere profielen is behouden.
+- Geen workflow nodig.
+
+Let op: iNaturalist-foto's zijn live en kunnen ontbreken. De foto's en app zijn niet live getest op Streamlit.
