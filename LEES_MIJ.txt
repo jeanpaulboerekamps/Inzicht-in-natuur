@@ -1,4 +1,0 @@
-V14 – family detail view
-Replace ONLY app.py in the root of your GitHub repository.
-Keep the existing families.sqlite3 and all workflows unchanged.
-In Streamlit, click a family row to show its detailed characteristics below the table.
