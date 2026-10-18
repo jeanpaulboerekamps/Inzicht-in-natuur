@@ -1,0 +1,9 @@
+INZICHT IN NATUUR — VERSIE 28
+
+19 nieuwe, Nederlandstalige familieprofielen: introducties in drie alinea's en in totaal 83 bijzonderheden.
+Geometridae is uit versie 27 behouden.
+De foto's worden voor geschikte organismen op soortnaam opgehaald bij iNaturalist, met unieke afbeeldingen per pagina. Voor bacteriën, archaea en virussen zijn zulke foto's vaak niet beschikbaar; er worden geen willekeurige beelden getoond.
+
+LET OP: de verwijzingen naar Wikipedia zijn algemene achtergrondlinks, geen verificatie van elke afzonderlijke bewering. De profielen zijn redactionele concepten die inhoudelijke broncontrole verdienen.
+
+De oude GitHub-workflows zijn meegeleverd, maar voor deze versie is geen workflow nodig.

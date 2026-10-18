@@ -81,6 +81,40 @@ FACT_TAXA={
  'Een familie vol verschillende leefwijzen':('Geometra papilionaria',None,None),
 }
 
+# Redactioneel gekozen vertegenwoordigers; geen vrije afbeeldingzoekopdrachten.
+FAMILY_HEADER_TAXA={
+ 'Orchidaceae':['Ophrys apifera','Orchis mascula','Vanilla planifolia'],
+ 'Asteraceae':['Bellis perennis','Helianthus annuus','Centaurea cyanus'],
+ 'Cerambycidae':['Rosalia alpina','Cerambyx cerdo','Rutpela maculata'],
+ 'Erebidae':['Arctia caja','Noctua pronuba','Euplagia quadripunctaria'],
+ 'Cortinariaceae':['Cortinarius violaceus','Cortinarius caperatus','Cortinarius armillatus'],
+ 'Russulaceae':['Russula emetica','Lactarius deliciosus','Russula virescens'],
+ 'Naviculaceae':['Navicula radiosa','Navicula cryptocephala'],
+ 'Peronosporaceae':['Phytophthora infestans','Plasmopara viticola'],
+ 'Sargassaceae':['Sargassum natans','Sargassum fluitans','Sargassum muticum'],
+ 'Euglenaceae':['Euglena gracilis','Euglena viridis'],
+ 'Physaraceae':['Physarum polycephalum','Physarum album'],
+ 'Enterobacteriaceae':['Escherichia coli','Salmonella enterica'],
+ 'Mycobacteriaceae':['Mycobacterium tuberculosis','Mycobacterium smegmatis'],
+ 'Oscillatoriaceae':['Oscillatoria princeps','Oscillatoria limosa'],
+ 'Desulfurococcaceae':['Desulfurococcus mobilis'],
+ 'Sulfolobaceae':['Sulfolobus acidocaldarius','Saccharolobus solfataricus'],
+ 'Thermoproteaceae':['Thermoproteus tenax'],
+ 'Arenaviridae':[], 'Coronaviridae':[],
+}
+# Alleen bij onderwerpen waarvoor de gekozen soort en levensfase relevant zijn.
+FAMILY_FACT_TAXA={
+ ('Orchidaceae','Een bloem die een insect nabootst'):('Ophrys apifera',None,None),
+ ('Orchidaceae','Vanille is een orchidee'):('Vanilla planifolia',None,None),
+ ('Asteraceae','De paardenbloempluis'):('Taraxacum officinale',None,None),
+ ('Cerambycidae','Wespennabootsing'):('Rutpela maculata',None,None),
+ ('Cerambycidae','Gevaarlijke nieuwkomers'):('Anoplophora glabripennis',None,None),
+ ('Erebidae','Geluiden tegen vleermuizen'):('Arctia caja',None,None),
+ ('Russulaceae','Melk bij beschadiging'):('Lactarius deliciosus',None,None),
+ ('Peronosporaceae','De aardappelziekte'):('Phytophthora infestans',None,None),
+ ('Physaraceae','Slim zonder hersenen'):('Physarum polycephalum',None,None),
+}
+
 def render_taxon_photo(name,caption=None,stage=None,sex=None,used=None):
     """One unique photo per page, and strict stage/sex matching for specialized cards."""
     candidates=observation_photos(name,stage=stage,sex=sex)
@@ -132,9 +166,10 @@ if event.selection.rows:
     with st.container(border=True):
         st.header(rec['name'])
         used_photos=set()
-        if rec['name']=='Geometridae':
-            photo_cols=st.columns(3,gap='small')
-            for col,(species,label) in zip(photo_cols,HEADER_TAXA):
+        if rec['name']=='Geometridae' or rec['name'] in FAMILY_HEADER_TAXA:
+            taxa=HEADER_TAXA if rec['name']=='Geometridae' else [(n,n) for n in FAMILY_HEADER_TAXA[rec['name']]]
+            photo_cols=st.columns(min(3,len(taxa)),gap='small') if taxa else []
+            for col,(species,label) in zip(photo_cols,taxa):
                 with col:
                     render_taxon_photo(species,label,used=used_photos)
         if pd.notna(rec.common_name):st.caption(rec.common_name)
@@ -156,10 +191,10 @@ if event.selection.rows:
                 st.subheader('Bijzonderheden')
                 for _,fact in ff.iterrows():
                     with st.container(border=True):
-                        if rec['name']=='Geometridae' and fact.title in FACT_TAXA:
+                        if (rec['name']=='Geometridae' and fact.title in FACT_TAXA) or (rec['name'],fact.title) in FAMILY_FACT_TAXA:
                             left,right=st.columns([1,3],gap='medium')
                             with left:
-                                species,stage,sex=FACT_TAXA[fact.title]
+                                species,stage,sex=(FACT_TAXA[fact.title] if rec['name']=='Geometridae' else FAMILY_FACT_TAXA[(rec['name'],fact.title)])
                                 render_taxon_photo(species,stage=stage,sex=sex,used=used_photos)
                             with right:
                                 st.markdown(f'#### {fact.title}')
