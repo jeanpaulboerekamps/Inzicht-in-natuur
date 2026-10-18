@@ -1,0 +1,1 @@
+Versie 26: meer soortgerichte foto-opties via iNaturalist-waarnemingen; geen overbodige waarnemingsmelding; unieke bronlinks onder Verder lezen. Foto’s blijven afhankelijk van iNaturalist-beschikbaarheid. Geen workflow nodig.

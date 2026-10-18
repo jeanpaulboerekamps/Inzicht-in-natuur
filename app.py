@@ -38,6 +38,36 @@ def taxon_photo(scientific_name):
     except (requests.RequestException,ValueError,KeyError,TypeError):
         return None
 
+@st.cache_data(ttl=604800,show_spinner=False)
+def observation_photo(scientific_name, larva=False):
+    """Fallback: photographed observation of the exact taxon, optionally larval stage."""
+    try:
+        params={'taxon_name':scientific_name,'photos':'true','quality_grade':'research',
+                'per_page':20,'order_by':'votes'}
+        if larva:
+            # iNaturalist annotation: Life Stage (term 1), Larva (value 6).
+            params.update(term_id=1,term_value_id=6)
+        # Resolve taxon ID from exact autocomplete instead of fuzzy observation matching.
+        tx=requests.get('https://api.inaturalist.org/v1/taxa/autocomplete',
+                        params={'q':scientific_name,'per_page':20},timeout=12,
+                        headers={'User-Agent':'InzichtInNatuur/1.0'})
+        tx.raise_for_status()
+        matches=[t for t in tx.json().get('results',[]) if t.get('name','').lower()==scientific_name.lower() and t.get('rank')=='species']
+        if not matches:return None
+        params.pop('taxon_name',None);params['taxon_id']=matches[0]['id']
+        r=requests.get('https://api.inaturalist.org/v1/observations',params=params,timeout=15,
+                       headers={'User-Agent':'InzichtInNatuur/1.0'})
+        r.raise_for_status()
+        for obs in r.json().get('results',[]):
+            for ph in obs.get('photos') or []:
+                url=ph.get('url')
+                if url:
+                    return (url.replace('square.','medium.'),
+                            'https://www.inaturalist.org/observations/'+str(obs['id']),
+                            ph.get('attribution') or 'iNaturalist')
+    except (requests.RequestException,ValueError,KeyError,TypeError):pass
+    return None
+
 # Taxonomically targeted images: no generic Commons search that can return another family.
 HEADER_TAXA=[('Geometra papilionaria','Groene spanner'),('Biston betularia','Berkenspanner'),('Operophtera brumata','Kleine wintervlinder')]
 FACT_TAXA={
@@ -45,10 +75,13 @@ FACT_TAXA={
  'Smaragdgroene spanners':'Geometra papilionaria',
  'Vrouwtjes zonder vliegvermogen':'Operophtera brumata',
  'Tropische specialisten op waardplanten':'Eois pallidicosta',
+ 'Een rups die de aarde opmeet':'Biston betularia',
+ 'Takjes die tot leven komen':'Biston betularia',
+ 'Een familie vol verschillende leefwijzen':'Geometra papilionaria',
 }
 
-def render_taxon_photo(name,caption=None):
-    found=taxon_photo(name)
+def render_taxon_photo(name,caption=None,larva=False):
+    found=(observation_photo(name,larva=True) if larva else None) or taxon_photo(name) or observation_photo(name)
     if not found:return False
     url,source,credit=found
     st.image(url,use_container_width=True)
@@ -99,7 +132,6 @@ if event.selection.rows:
         a,b=st.columns(2)
         a.metric('Soorten in iNaturalist',f'{int(rec.species_count):,}' if pd.notna(rec.species_count) else 'Onbekend')
         b.metric('iNaturalist taxon-ID',str(rec.id))
-        st.caption('Waarnemingsaantallen zijn niet aanwezig in de aangeleverde database.')
         prof=profiles[profiles.family_id==rec.id] if not profiles.empty else pd.DataFrame()
         if prof.empty:st.info('Voor deze familie is nog geen encyclopedisch profiel onderzocht.')
         else:
@@ -118,8 +150,8 @@ if event.selection.rows:
                             left,right=st.columns([1,3],gap='medium')
                             with left:
                                 species=FACT_TAXA.get(fact.title)
-                                if species:render_taxon_photo(species)
-                                # For caterpillar-specific facts, do not show an adult moth as illustration.
+                                if species:render_taxon_photo(species,larva=fact.title in ('Een rups die de aarde opmeet','Takjes die tot leven komen'))
+                                # If a larva photo is unavailable, show the exact species as a representative, not a generic search result.
                             with right:
                                 st.markdown(f'#### {fact.title}')
                                 st.write(fact.body)
@@ -131,8 +163,16 @@ if event.selection.rows:
                             if pd.notna(fact.source_url) and fact.source_url:
                                 st.markdown(f'[Meer lezen / achtergrondbron]({fact.source_url})')
             # Oude automatisch verzamelde fragmenten worden niet op de publieksprofielpagina getoond.
+            # Toon geen herhaalde generieke bronnamen: vermeld unieke, concrete links.
             ss=sources[sources.family_id==rec.id] if not sources.empty else pd.DataFrame()
-            if not ss.empty:
-                st.subheader('Bronnen')
-                for _,s in ss.iterrows():st.markdown(f'- [{s.source_name}]({s.url})')
+            fact_urls=[str(u) for u in ff.source_url.dropna().tolist()] if not ff.empty else []
+            all_urls=sorted(set(fact_urls + (ss.url.dropna().astype(str).tolist() if not ss.empty else [])))
+            if all_urls:
+                st.subheader('Verder lezen')
+                for url in all_urls:
+                    if not url.startswith(('https://','http://')):continue
+                    from urllib.parse import urlparse
+                    parsed=urlparse(url)
+                    label=parsed.netloc.removeprefix('www.') + (parsed.path.rstrip('/').split('/')[-1].replace('-',' ') if parsed.path.rstrip('/').split('/')[-1] else '')
+                    st.markdown(f'- [{label}]({url})')
 else:st.info('Klik op een familie in de tabel om het profiel te openen.')
