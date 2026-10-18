@@ -1,0 +1,1 @@
+Versie 24: herstelt foutieve weergave van st.caption en toont Geometridae-feiten in aparte kaarten met fotozoekfunctie via Wikimedia Commons. Foto’s worden alleen getoond wanneer de Commons API een geschikte vrij gelicentieerde afbeelding teruggeeft. Internetverbinding vereist voor foto’s. Geen nieuwe workflow nodig.

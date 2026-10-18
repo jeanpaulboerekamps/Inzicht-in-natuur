@@ -1,6 +1,7 @@
 from pathlib import Path
 import sqlite3
 import pandas as pd
+import requests
 import streamlit as st
 DB=Path(__file__).with_name('families.sqlite3')
 st.set_page_config(page_title='Inzicht in natuur',layout='wide')
@@ -18,6 +19,44 @@ def load(mtime):
         evidence=pd.read_sql_query('SELECT * FROM family_evidence ORDER BY source_name',c) if 'family_evidence' in tables else pd.DataFrame()
         return f,profiles,facts,sources,evidence
 f,profiles,facts,sources,evidence=load(DB.stat().st_mtime_ns)
+@st.cache_data(ttl=604800,show_spinner=False)
+def commons_photo(query):
+    """Find a freely licensed Wikimedia Commons image; never fabricate a URL."""
+    try:
+        r=requests.get('https://commons.wikimedia.org/w/api.php',params={
+            'action':'query','generator':'search','gsrsearch':'filetype:bitmap '+query,
+            'gsrnamespace':6,'gsrlimit':8,'prop':'imageinfo','iiprop':'url|extmetadata',
+            'iiurlwidth':520,'format':'json'},headers={'User-Agent':'InzichtInNatuur/1.0 (educational encyclopedia; contact via GitHub)'},timeout=12)
+        r.raise_for_status()
+        for page in r.json().get('query',{}).get('pages',{}).values():
+            info=(page.get('imageinfo') or [{}])[0]
+            meta=info.get('extmetadata',{})
+            license_name=meta.get('LicenseShortName',{}).get('value','')
+            if not any(x in license_name.lower() for x in ('cc','public domain','pd-')):continue
+            url=info.get('thumburl') or info.get('url')
+            if url and url.lower().split('?')[0].endswith(('.jpg','.jpeg','.png','.webp')):
+                return url,info.get('descriptionurl',''),license_name
+    except (requests.RequestException,ValueError,KeyError):pass
+    return None,None,None
+
+GEOMETRIDAE_PHOTOS={
+ 'Een rups die de aarde opmeet':'Geometridae inchworm caterpillar looping',
+ 'Takjes die tot leven komen':'Geometridae caterpillar twig mimic',
+ 'Een beroemd voorbeeld van evolutie':'Biston betularia peppered moth',
+ 'Smaragdgroene spanners':'Geometra papilionaria moth',
+ 'Vrouwtjes zonder vliegvermogen':'Operophtera brumata female',
+ 'Tropische specialisten op waardplanten':'Eois moth Geometridae',
+ 'Een familie vol verschillende leefwijzen':'Geometridae moth'
+}
+
+def show_photo(query):
+    url,source,license_name=commons_photo(query)
+    if url:
+        st.image(url,use_container_width=True)
+        if source:st.caption(f'[Foto: Wikimedia Commons · {license_name}]({source})')
+    else:
+        st.caption('Geen vrij herbruikbare foto gevonden.')
+
 st.caption(f'{len(f):,} families · {len(profiles):,} onderzoeksprofielen')
 with st.sidebar:
     st.header('Filters')
@@ -44,6 +83,8 @@ if event.selection.rows:
     rec=filtered.iloc[event.selection.rows[0]]
     with st.container(border=True):
         st.header(rec['name'])
+        if rec['name']=='Geometridae':
+            show_photo('Geometra papilionaria Geometridae moth')
         if pd.notna(rec.common_name):st.caption(rec.common_name)
         st.caption(' › '.join(str(rec[k]) for k in ['kingdom','phylum','class_name','order_name'] if pd.notna(rec[k])))
         a,b=st.columns(2)
@@ -63,11 +104,26 @@ if event.selection.rows:
             ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
             if not ff.empty:
                 st.subheader('Bijzonderheden')
-                st.caption('Redactionele teksten met achtergrondbronnen; nog niet onafhankelijk per bewering geverifieerd.') if r.status == 'editorial_draft' else st.caption('Automatisch verzamelde fragmenten; nog niet wetenschappelijk gecontroleerd.')
+                if r.status == 'editorial_draft':
+                    st.caption('Redactionele concepten; bronnen nog niet per bewering geverifieerd.')
+                else:
+                    st.caption('Automatisch verzamelde informatie; inhoudelijke controle nodig.')
                 for _,fact in ff.iterrows():
-                    st.markdown(f'**{fact.title}**')
-                    st.write(fact.body)
-                    if pd.notna(fact.source_url) and fact.source_url:st.markdown(f'[Bron]({fact.source_url})')
+                    with st.container(border=True):
+                        if rec['name']=='Geometridae':
+                            left,right=st.columns([1,3],gap='medium')
+                            with left:
+                                show_photo(GEOMETRIDAE_PHOTOS.get(fact.title,'Geometridae moth'))
+                            with right:
+                                st.markdown(f'#### {fact.title}')
+                                st.write(fact.body)
+                                if pd.notna(fact.source_url) and fact.source_url:
+                                    st.markdown(f'[Meer lezen / achtergrondbron]({fact.source_url})')
+                        else:
+                            st.markdown(f'#### {fact.title}')
+                            st.write(fact.body)
+                            if pd.notna(fact.source_url) and fact.source_url:
+                                st.markdown(f'[Meer lezen / achtergrondbron]({fact.source_url})')
             # Oude automatisch verzamelde fragmenten worden niet op de publieksprofielpagina getoond.
             ss=sources[sources.family_id==rec.id] if not sources.empty else pd.DataFrame()
             if not ss.empty:
