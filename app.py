@@ -160,8 +160,8 @@ elif order=='Alfabetisch':filtered=filtered.sort_values('name')
 else:filtered=filtered.sort_values(['kingdom','phylum','class_name','order_name','name'],na_position='last')
 st.subheader(f'{len(filtered):,} families')
 view=filtered[['kingdom','phylum','class_name','order_name','name']].rename(columns={'kingdom':'Rijk','phylum':'Stam','class_name':'Klasse','order_name':'Orde','name':'Familie'})
-event=st.dataframe(view,hide_index=True,use_container_width=True,height=520,on_select='rerun',selection_mode='single-row',key='family_table')
-if event.selection.rows:
+event=st.dataframe(view,hide_index=True,use_container_width=True,height=520,on_select='rerun',selection_mode='single-row',key='family_table_'+__import__('hashlib').sha1(('|'.join(map(str,[q,order,only,len(filtered),','.join(filtered['name'].head(5).astype(str))]))).encode()).hexdigest()[:12])
+if event.selection.rows and 0 <= event.selection.rows[0] < len(filtered):
     rec=filtered.iloc[event.selection.rows[0]]
     with st.container(border=True):
         st.header(rec['name'])
