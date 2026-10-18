@@ -56,26 +56,19 @@ if event.selection.rows:
             r=prof.iloc[0]
             st.subheader('Introductie')
             if str(r.status).startswith('draft'):st.warning('Draft based on source text — not yet fact-checked. Consult the original sources.')
-            elif r.status == 'editorial_draft':st.info('Redactioneel samengesteld Nederlands concept. Inhoud en bronverwijzingen vereisen nog onafhankelijke controle.')
+            elif r.status == 'editorial_draft':st.caption('Redactioneel samengesteld profiel · bronnen ter achtergrond, nog niet per bewering geverifieerd')
             elif r.status != 'reviewed':st.caption('Bronmateriaal, nog niet redactioneel gecontroleerd.')
             st.write(r.introduction if pd.notna(r.introduction) and r.introduction else 'No verified introduction available yet.')
-            st.caption(f'Onderzoeksstatus: {r.status}')
+            # Onderzoeksstatus wordt intern bijgehouden
             ff=facts[facts.family_id==rec.id] if not facts.empty else pd.DataFrame()
             if not ff.empty:
                 st.subheader('Bijzonderheden')
-                st.caption('Nederlandstalige redactionele concepten. Bronlinks zijn achtergrondverwijzingen; afzonderlijke beweringen zijn nog niet onafhankelijk geverifieerd.') if r.status == 'editorial_draft' else st.caption('Automatisch verzamelde fragmenten; nog niet wetenschappelijk gecontroleerd.')
+                st.caption('Redactionele teksten met achtergrondbronnen; nog niet onafhankelijk per bewering geverifieerd.') if r.status == 'editorial_draft' else st.caption('Automatisch verzamelde fragmenten; nog niet wetenschappelijk gecontroleerd.')
                 for _,fact in ff.iterrows():
                     st.markdown(f'**{fact.title}**')
                     st.write(fact.body)
                     if pd.notna(fact.source_url) and fact.source_url:st.markdown(f'[Bron]({fact.source_url})')
-            ev=evidence[evidence.family_id==rec.id] if not evidence.empty else pd.DataFrame()
-            if not ev.empty:
-                st.subheader('Additional source material')
-                st.caption('Automatisch verzamelde gegevens; nog geen gevalideerde bijzonderheden.')
-                for _,e in ev.iterrows():
-                    with st.expander(f'{e.source_name} · {e.evidence_type}'):
-                        st.write(e.text)
-                        st.markdown(f'[Bekijk oorspronkelijke bron]({e.source_url})')
+            # Oude automatisch verzamelde fragmenten worden niet op de publieksprofielpagina getoond.
             ss=sources[sources.family_id==rec.id] if not sources.empty else pd.DataFrame()
             if not ss.empty:
                 st.subheader('Bronnen')

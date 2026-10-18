@@ -1,0 +1,1 @@
+Versie 23: Geometridae met uitgebreide Nederlandstalige introductie en zeven biologische bijzonderheden. Bronlinks zijn achtergrondbronnen, niet onafhankelijk per claim geverifieerd. Ook zijn oudere bronfragmenten verborgen en de Streamlit-weergave vereenvoudigd. Geen workflow nodig.
